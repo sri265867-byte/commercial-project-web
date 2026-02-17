@@ -1,0 +1,76 @@
+import type { Effect } from "./types"
+
+export const MINIMAX_HAILUO_EFFECTS: Effect[] = [
+    {
+        id: "mh-general",
+        name: "GENERAL",
+        category: "All",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/d0028591-db56-4d8e-9fc0-d77efc18d018.mp4",
+        model: "minimax-hailuo",
+        prompt: "Bring this image to life",
+    },
+    {
+        id: "mh-1",
+        name: "BLOODY EYES",
+        category: "Horror",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/ea08a545-a657-45c1-81b5-93cb26ea125e.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic masterpiece, photorealistic 8k, dark and moody environment, slow zoom from medium shot to tight close-up on subject’s face, sorrowful expression. Suddenly bright red liquid flows from eyes like tears, water-thin, fast flow down wet cheeks, dramatic cold lighting, high-fidelity fluid physics, cinematic shadows, detailed skin texture.",
+    },
+    {
+        id: "mh-2",
+        name: "VAMPIRE TRANSFORMATION",
+        category: "Horror",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/8817581b-b703-4300-adbb-df860f48495f.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic masterpiece, photorealistic, 8k. Based on the input image, the camera executes a slow, smooth cinematic zoom from a medium shot in to a tight close-up of the subject's face. As the camera zooms in, the environment lighting dramatically shifts to become dark, moody, and high-contrast, focusing sharply on the facial features. The subject turns their gaze to look directly into the camera lens intensely. Suddenly, a rapid vampire transformation occurs: the subject's irises change color to glowing bright amber, and realistic sharp white fangs grow quickly from under the upper lip, extending over the lower lip. The subject ends with a wide, menacing, alluring vampire smile showing the fangs. Extremely detailed skin texture, high fidelity.",
+    },
+    {
+        id: "mh-3",
+        name: "DEVIL TRANSFORMATION",
+        category: "Horror",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/c29fab6d-8082-49f8-ac4a-fc2ff2cd3755.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic masterpiece photorealistic 8k, gentle cinematic push-in from medium shot to natural close-up keeping comfortable distance from the face, the subject slowly raises their gaze and looks directly into the camera with an intense menacing stare while the skin turns deep saturated red and large dark rough horns grow from the forehead ridge, dramatic warm elevator lighting, realistic textures.",
+    },
+    {
+        id: "mh-4",
+        name: "HAND MOUTHS",
+        category: "Horror",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/d6e5eb99-2c9b-4e56-8044-78083af16517.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic photorealistic 8k, natural perspective lens, the subject extends both hands toward the viewer with palms in sharp foreground focus while the face becomes heavily blurred in the background, slow subtle push-in, deep creases form in the center of both palms and realistic human mouths open from the flesh with detailed lips teeth and moving tongues, macro style lighting, extremely detailed skin texture.",
+    },
+    {
+        id: "mh-5",
+        name: "MAGGOR SWARM",
+        category: "Horror",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/bd04ebd9-5217-4f49-99d3-f14ea6e246b3.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic masterpiece, photorealistic, 8k. Based on the input image, the camera performs a slow, smooth cinematic zoom, ending in a standard close-up of the subject's face, keeping the entire face visible. The lighting shifts to a sickly hue. A grotesque, visceral body-horror transformation occurs simultaneously on both the eyes and the mouth. The subject's eyes do not just turn white; instead, the eyelids severely swell, become diseased, and physically fuse together, completely sealing the eye sockets with raw, textured flesh, making them look blind and sealed shut. At the exact same time, the mouth opens, revealing a dense, writhing mass of realistic pale maggots and worms spilling out over the lips. Both the fused, sealed flesh-eyes and the maggot-filled mouth must be clearly visible in the final frame. Extreme detail, body horror texture.",
+    },
+    {
+        id: "mh-7",
+        name: "CRYING",
+        category: "Viral",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/c7618230-873c-4afe-ba17-54609ee50e9b.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic masterpiece, photorealistic, 8k. Based on the input image, the camera remains mostly steady, focusing purely on the subject's raw emotion. The subject suddenly undergoes an intense emotional breakdown. Their face violently contorts into an expression of extreme anguish and deep sadness. They begin to cry hysterically, sobbing out loud with their mouth wide open and their eyes squeezed tightly shut. Heavy tears stream rapidly down their cheeks. Highly realistic facial muscle movement, capturing raw and genuine distress. High fidelity, lifelike skin texture and tear physics.",
+    },
+    {
+        id: "mh-8",
+        name: "CLOTHES RAIN",
+        category: "UGC",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/c8a60e70-be82-4d6b-8e4e-0c5dc6616d35.mp4",
+        model: "minimax-hailuo",
+        prompt: "Cinematic, photorealistic, 8k. Based on the input image, the camera remains completely static. The subject stays in their original pose. Suddenly, a heavy cascade of various clothing items begins falling rapidly from the top of the frame directly onto the subject. The falling clothes include a massive, diverse mix of jackets, coats, scarves, and heavy fabrics featuring various bright colors, rich textures, and patterns (like plaid, knitwear, and silk). The garments drop heavily and land realistically, gradually piling up around and covering the subject. Highly detailed fabric physics, realistic cloth simulation, dynamic movement.",
+    },
+    {
+        id: "mh-9",
+        name: "BOILING POINT",
+        category: "Emotions",
+        videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/ef7df181-abaa-4af4-9095-4851196f321b.mp4",
+        model: "minimax-hailuo",
+        prompt: "A cinematic, super slow-motion shot of the main subject looking at the camera. The camera performs a slow, steady dolly-in movement, getting closer but not too tight. As the camera creeps forward, thick, pressurized jets of white steam slowly erupt directly from inside the subject's nostrils and ear canals. The source of the steam is precisely located within these anatomical openings, with no offset, billowing out in complex, volumetric clouds that expand gracefully in the air. Photorealistic, 8k, shallow depth of field, high-speed photography style.",
+    }
+]
