@@ -2,7 +2,7 @@
 FROM node:20-alpine AS build-frontend
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY . .
 # Empty API URL for relative paths (same origin)
 ENV NEXT_PUBLIC_API_URL="" 
