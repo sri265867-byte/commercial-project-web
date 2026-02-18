@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useReducer } from "react"
+import dynamic from "next/dynamic"
 import { type ModelId, models, calculateCost } from "@/lib/models"
-import { generateVideo, fileToBase64, getUser, updateUserSettings, type UserResponse } from "@/lib/api"
+import { generateVideo, fileToBase64, getUser, updateUserSettings, checkHasPending, type UserResponse } from "@/lib/api"
 import { type Effect, getDefaultEffect } from "@/lib/effects/index"
 import { HeroBanner } from "./hero-banner"
 import { UploadArea } from "./upload-area"
@@ -11,8 +12,12 @@ import { ModelSelector } from "./model-selector"
 import { SettingRow } from "./setting-row"
 import { GenerateButton } from "./generate-button"
 import { ErrorDialog } from "./error-dialog"
-import { EffectsLibrary } from "./effects-library"
 import { Switch } from "@/components/ui/switch"
+
+const EffectsLibrary = dynamic(
+  () => import("./effects-library").then(m => ({ default: m.EffectsLibrary })),
+  { ssr: false }
+)
 
 
 const bannerImages: Record<ModelId, string> = {
@@ -41,7 +46,64 @@ function frontendModelToBackend(modelId: ModelId): string {
   return map[modelId]
 }
 
-export function CreateVideoTab() {
+type ErrorState = {
+  open: boolean
+  type: "insufficient_credits" | "upload_failed" | "generation_failed" | "unknown"
+  message: string
+  credits: { need: number; have: number }
+}
+
+type ErrorAction =
+  | { type: "SHOW"; errorType: ErrorState["type"]; message?: string; credits?: { need: number; have: number } }
+  | { type: "CLOSE" }
+
+const initialErrorState: ErrorState = {
+  open: false,
+  type: "unknown",
+  message: "",
+  credits: { need: 0, have: 0 },
+}
+
+function errorReducer(state: ErrorState, action: ErrorAction): ErrorState {
+  switch (action.type) {
+    case "SHOW":
+      return {
+        open: true,
+        type: action.errorType,
+        message: action.message ?? "",
+        credits: action.credits ?? { need: 0, have: 0 },
+      }
+    case "CLOSE":
+      return { ...state, open: false }
+  }
+}
+
+type EffectState = {
+  libraryOpen: boolean
+  videoUrl: string | null
+  name: string
+}
+
+type EffectAction =
+  | { type: "OPEN_LIBRARY" }
+  | { type: "CLOSE_LIBRARY" }
+  | { type: "SELECT"; videoUrl: string | null; name: string }
+  | { type: "RESET"; videoUrl: string | null; name: string }
+
+function effectReducer(state: EffectState, action: EffectAction): EffectState {
+  switch (action.type) {
+    case "OPEN_LIBRARY":
+      return { ...state, libraryOpen: true }
+    case "CLOSE_LIBRARY":
+      return { ...state, libraryOpen: false }
+    case "SELECT":
+      return { libraryOpen: false, videoUrl: action.videoUrl, name: action.name }
+    case "RESET":
+      return { ...state, videoUrl: action.videoUrl, name: action.name }
+  }
+}
+
+export function CreateVideoTab({ onGoToShop }: { onGoToShop?: () => void }) {
   const [selectedModel, setSelectedModel] = useState<ModelId>("veo-3.1")
   const [duration, setDuration] = useState<string>("6s")
   const [audioEnabled, setAudioEnabled] = useState(false)
@@ -52,20 +114,20 @@ export function CreateVideoTab() {
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false)
+  const [hasPending, setHasPending] = useState(false)
 
   // Settings loaded flag 
   const [settingsLoaded, setSettingsLoaded] = useState(false)
 
   // Error dialog state
-  const [errorOpen, setErrorOpen] = useState(false)
-  const [errorType, setErrorType] = useState<"insufficient_credits" | "upload_failed" | "generation_failed" | "unknown">("unknown")
-  const [errorMessage, setErrorMessage] = useState("")
-  const [errorCredits, setErrorCredits] = useState({ need: 0, have: 0 })
+  const [errorState, dispatchError] = useReducer(errorReducer, initialErrorState)
 
   // Effects library
-  const [effectsLibraryOpen, setEffectsLibraryOpen] = useState(false)
-  const [effectVideoUrl, setEffectVideoUrl] = useState<string | null>(() => getDefaultEffect("veo-3.1").videoUrl)
-  const [selectedEffectName, setSelectedEffectName] = useState(() => getDefaultEffect("veo-3.1").name)
+  const [effectState, dispatchEffect] = useReducer(effectReducer, {
+    libraryOpen: false,
+    videoUrl: getDefaultEffect("veo-3.1").videoUrl,
+    name: getDefaultEffect("veo-3.1").name,
+  })
 
   // Initialize prompt with default effect
   const [prompt, setPrompt] = useState(() => getDefaultEffect("veo-3.1").prompt)
@@ -98,13 +160,15 @@ export function CreateVideoTab() {
       // Reset effect to GENERAL for the loaded model
       const defaultEffect = getDefaultEffect(frontendModel)
       setPrompt(defaultEffect.prompt)
-      setEffectVideoUrl(defaultEffect.videoUrl)
-      setSelectedEffectName(defaultEffect.name)
+      dispatchEffect({ type: "RESET", videoUrl: defaultEffect.videoUrl, name: defaultEffect.name })
 
       setSettingsLoaded(true)
     }
 
     loadSettings()
+
+    // Check for pending generation
+    checkHasPending().then(pending => setHasPending(pending))
   }, [])
 
   const handleModelChange = (modelId: ModelId) => {
@@ -119,8 +183,7 @@ export function CreateVideoTab() {
     // Reset effect to GENERAL for this model
     const defaultEffect = getDefaultEffect(modelId)
     setPrompt(defaultEffect.prompt)
-    setEffectVideoUrl(defaultEffect.videoUrl)
-    setSelectedEffectName(defaultEffect.name)
+    dispatchEffect({ type: "RESET", videoUrl: defaultEffect.videoUrl, name: defaultEffect.name })
 
     // Save selected model immediately
     updateUserSettings({ selected_model: frontendModelToBackend(modelId) })
@@ -139,9 +202,7 @@ export function CreateVideoTab() {
   const handleGenerate = async () => {
     // Validate
     if (!imageFile) {
-      setErrorType("upload_failed")
-      setErrorMessage("Загрузите изображение перед генерацией")
-      setErrorOpen(true)
+      dispatchError({ type: "SHOW", errorType: "upload_failed", message: "Загрузите изображение перед генерацией" })
       return
     }
 
@@ -151,15 +212,19 @@ export function CreateVideoTab() {
 
     setIsGenerating(true)
 
+    const aspectRatio = model.aspectRatio || "Auto"
+    const durationValue = model.durationOptions.length > 0 ? parseInt(duration) : undefined
+    const trimmedPrompt = prompt.trim()
+
     try {
       // Pre-check balance before heavy file conversion
       const user = await getUser()
-      if (user && user.balance < generationCost) {
-        setErrorType("insufficient_credits")
-        setErrorCredits({ need: generationCost, have: user.balance })
-        setErrorOpen(true)
-        setIsGenerating(false)
-        return
+      if (user) {
+        if (user.balance < generationCost) {
+          dispatchError({ type: "SHOW", errorType: "insufficient_credits", credits: { need: generationCost, have: user.balance } })
+          setIsGenerating(false)
+          return
+        }
       }
 
       // Convert image to base64
@@ -167,25 +232,25 @@ export function CreateVideoTab() {
 
       // Call API
       const result = await generateVideo({
-        prompt: prompt.trim(),
+        prompt: trimmedPrompt,
         imageBase64,
         model: model.apiModel,
-        aspectRatio: model.aspectRatio || "Auto",
-        duration: model.durationOptions.length > 0 ? parseInt(duration) : undefined,
+        aspectRatio,
+        duration: durationValue,
         sound: audioEnabled,
       })
 
       if (!result.success) {
         if (result.error.error === "insufficient_credits") {
-          setErrorType("insufficient_credits")
-          setErrorCredits({
-            need: result.error.need || 0,
-            have: result.error.have || 0,
-          })
+          let need = result.error.need
+          if (!need) need = 0
+          let have = result.error.have
+          if (!have) have = 0
+          dispatchError({ type: "SHOW", errorType: "insufficient_credits", credits: { need, have } })
         } else {
-          setErrorType("generation_failed")
+          dispatchError({ type: "SHOW", errorType: "generation_failed" })
         }
-        setErrorOpen(true)
+        setIsGenerating(false)
         return
       }
 
@@ -195,17 +260,18 @@ export function CreateVideoTab() {
       setImagePreview(null)
 
       // TODO: Show success message and redirect to status page
-
+      setIsGenerating(false)
+      // Success! Close mini app
+      // @ts-ignore - Telegram WebApp
+      window.Telegram?.WebApp?.close()
     } catch (error) {
-      setErrorType("unknown")
-      setErrorOpen(true)
-    } finally {
+      dispatchError({ type: "SHOW", errorType: "unknown" })
       setIsGenerating(false)
     }
   }
 
   // Check if can generate (image + prompt required)
-  const canGenerate = imageFile !== null && prompt.trim().length > 0
+  const canGenerate = imageFile !== null && prompt.trim().length > 0 && !hasPending
 
   // --- Loading skeleton ---
   if (!settingsLoaded) {
@@ -234,11 +300,11 @@ export function CreateVideoTab() {
     <div className="flex flex-col gap-3 pb-6">
       {/* Hero Banner */}
       <HeroBanner
-        title={selectedEffectName}
+        title={effectState.name}
         subtitle={model.name}
         imageUrl={bannerImages[selectedModel]}
-        videoUrl={effectVideoUrl ?? undefined}
-        onChangeBanner={() => setEffectsLibraryOpen(true)}
+        videoUrl={effectState.videoUrl ?? undefined}
+        onChangeBanner={() => dispatchEffect({ type: "OPEN_LIBRARY" })}
       />
 
       {/* Upload Area */}
@@ -248,9 +314,7 @@ export function CreateVideoTab() {
         onUpload={handleImageUpload}
         onClear={handleImageClear}
         onError={(msg) => {
-          setErrorMessage(msg)
-          setErrorType("upload_failed")
-          setErrorOpen(true)
+          dispatchError({ type: "SHOW", errorType: "upload_failed", message: msg })
         }}
         className="h-[130px]"
       />
@@ -329,23 +393,23 @@ export function CreateVideoTab() {
 
       {/* Error Dialog */}
       <ErrorDialog
-        open={errorOpen}
-        onClose={() => setErrorOpen(false)}
-        type={errorType}
-        message={errorMessage}
-        creditsNeeded={errorCredits.need}
-        creditsHave={errorCredits.have}
+        open={errorState.open}
+        onClose={() => dispatchError({ type: "CLOSE" })}
+        type={errorState.type}
+        message={errorState.message}
+        creditsNeeded={errorState.credits.need}
+        creditsHave={errorState.credits.have}
+        onGoToShop={onGoToShop}
       />
 
       {/* Effects Library */}
       <EffectsLibrary
-        open={effectsLibraryOpen}
-        onClose={() => setEffectsLibraryOpen(false)}
+        open={effectState.libraryOpen}
+        onClose={() => dispatchEffect({ type: "CLOSE_LIBRARY" })}
         currentModel={selectedModel}
         onSelectEffect={(effect) => {
           setPrompt(effect.prompt)
-          setEffectVideoUrl(effect.videoUrl)
-          setSelectedEffectName(effect.name)
+          dispatchEffect({ type: "SELECT", videoUrl: effect.videoUrl, name: effect.name })
         }}
       />
     </div>

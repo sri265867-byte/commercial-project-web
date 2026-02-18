@@ -1,41 +1,105 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useReducer, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { Video, Plus, Film, ImageIcon, Library } from "lucide-react"
 import { GenerateButton } from "./generate-button"
 import { PromptInput } from "./prompt-input"
 import { UploadArea } from "./upload-area"
 import { ErrorDialog } from "./error-dialog"
-import { MotionLibrary } from "./motion-library"
+import { fileToBase64, generateVideo, getUser, checkHasPending } from "@/lib/api"
 
-export function MotionControlTab() {
+const MotionLibrary = dynamic(
+  () => import("./motion-library").then(m => ({ default: m.MotionLibrary })),
+  { ssr: false }
+)
+
+type ErrorState = {
+  open: boolean
+  type: "insufficient_credits" | "upload_failed" | "generation_failed" | "unknown"
+  message: string
+  credits: { need: number; have: number }
+}
+
+type ErrorAction =
+  | { type: "SHOW"; errorType: ErrorState["type"]; message?: string; credits?: { need: number; have: number } }
+  | { type: "CLOSE" }
+
+function motionErrorReducer(state: ErrorState, action: ErrorAction): ErrorState {
+  switch (action.type) {
+    case "SHOW":
+      return {
+        open: true,
+        type: action.errorType,
+        message: action.message ?? "",
+        credits: action.credits ?? { need: 0, have: 0 },
+      }
+    case "CLOSE":
+      return { ...state, open: false }
+  }
+}
+
+type VideoRefState = {
+  file: File | null
+  preview: string | null
+  duration: number
+  libraryUrl: string | null
+}
+
+type VideoRefAction =
+  | { type: "UPLOAD"; file: File; preview: string }
+  | { type: "SET_LIBRARY"; preview: string; libraryUrl: string; duration: number }
+  | { type: "SET_DURATION"; duration: number }
+  | { type: "CLEAR" }
+  | { type: "CLEAR_ALL_FORM" }
+
+function videoRefReducer(state: VideoRefState, action: VideoRefAction): VideoRefState {
+  switch (action.type) {
+    case "UPLOAD":
+      return { file: action.file, preview: action.preview, duration: state.duration, libraryUrl: null }
+    case "SET_LIBRARY":
+      return { file: null, preview: action.preview, libraryUrl: action.libraryUrl, duration: action.duration }
+    case "SET_DURATION":
+      return { ...state, duration: action.duration }
+    case "CLEAR":
+      return { file: null, preview: null, duration: 0, libraryUrl: null }
+    case "CLEAR_ALL_FORM":
+      return { file: null, preview: null, duration: 0, libraryUrl: null }
+  }
+}
+
+export function MotionControlTab({ onGoToShop }: { onGoToShop?: () => void }) {
   const [prompt, setPrompt] = useState("")
   const [orientation, setOrientation] = useState<"video" | "image">("image")
-
-  // File state
-  const [videoFile, setVideoFile] = useState<File | null>(null)
-  const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-
-  const [videoDuration, setVideoDuration] = useState<number>(0)
-  const [libraryVideoUrl, setLibraryVideoUrl] = useState<string | null>(null) // CDN URL when from library
   const [isGenerating, setIsGenerating] = useState(false)
-
-  // Error state
-  const [errorOpen, setErrorOpen] = useState(false)
-  const [errorMessage, setErrorMessage] = useState("")
-  const [errorType, setErrorType] = useState<"insufficient_credits" | "upload_failed" | "generation_failed" | "unknown">("unknown")
-  const [errorCredits, setErrorCredits] = useState({ need: 0, have: 0 })
+  const [hasPending, setHasPending] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
 
-  // Handle video selection from the Motion Library
+  const [videoRef, dispatchVideoRef] = useReducer(videoRefReducer, {
+    file: null,
+    preview: null,
+    duration: 0,
+    libraryUrl: null,
+  })
+
+  const [errorState, dispatchError] = useReducer(motionErrorReducer, {
+    open: false,
+    type: "unknown" as const,
+    message: "",
+    credits: { need: 0, have: 0 },
+  })
+
+  // Check pending on mount
+  useEffect(() => {
+    checkHasPending().then(pending => setHasPending(pending))
+  }, [])
+
   const handleLibraryVideoSelect = useCallback(async (video: { id: string; src: string }) => {
-    // Use CDN URL directly for preview — no need to fetch blob
     const previewUrl = video.src
 
-    // Measure duration with fallback (some CDNs block cross-origin metadata)
-    let duration = 5 // sensible default
+    let duration = 5
     try {
       duration = await new Promise<number>((resolve, reject) => {
         const vid = document.createElement("video")
@@ -43,30 +107,21 @@ export function MotionControlTab() {
         vid.onloadedmetadata = () => resolve(vid.duration)
         vid.onerror = () => reject("Failed to load video metadata")
         vid.src = previewUrl
-        // Timeout: if metadata doesn't load in 5s, use default
         setTimeout(() => resolve(5), 5000)
       })
     } catch {
-      // Use default duration — video will still work
     }
 
-    setVideoFile(null) // No File needed for library videos
-    setVideoPreview(previewUrl)
-    setLibraryVideoUrl(video.src) // Store CDN URL to send directly
-    setVideoDuration(duration)
+    dispatchVideoRef({ type: "SET_LIBRARY", preview: previewUrl, libraryUrl: video.src, duration })
   }, [])
 
   const validateVideo = async (file: File, previewUrl: string): Promise<boolean> => {
-    // 1. Check size (100MB)
-    const maxSize = 100 * 1024 * 1024 // 100MB
+    const maxSize = 100 * 1024 * 1024
     if (file.size > maxSize) {
-      setErrorMessage("Размер видео не должен превышать 100 МБ")
-      setErrorType("upload_failed")
-      setErrorOpen(true)
+      dispatchError({ type: "SHOW", errorType: "upload_failed", message: "Размер видео не должен превышать 100 МБ" })
       return false
     }
 
-    // 2. Check duration (3-30s)
     try {
       const duration = await new Promise<number>((resolve, reject) => {
         const video = document.createElement("video")
@@ -78,27 +133,25 @@ export function MotionControlTab() {
         video.src = previewUrl
       })
 
-      if (duration < 3 || duration > 30) {
-        setErrorMessage("Длительность видео должна быть от 3 до 30 секунд")
-        setErrorType("upload_failed")
-        setErrorOpen(true)
+      if (duration < 3) {
+        dispatchError({ type: "SHOW", errorType: "upload_failed", message: "Длительность видео должна быть от 3 до 30 секунд" })
+        return false
+      }
+      if (duration > 30) {
+        dispatchError({ type: "SHOW", errorType: "upload_failed", message: "Длительность видео должна быть от 3 до 30 секунд" })
         return false
       }
 
-      setVideoDuration(duration)
+      dispatchVideoRef({ type: "SET_DURATION", duration })
       return true
     } catch (e) {
-      setErrorMessage("Не удалось проверить длительность видео")
-      setErrorType("upload_failed")
-      setErrorOpen(true)
+      dispatchError({ type: "SHOW", errorType: "upload_failed", message: "Не удалось проверить длительность видео" })
       return false
     }
   }
 
   const handleVideoUpload = (file: File, previewUrl: string) => {
-    setVideoFile(file)
-    setVideoPreview(previewUrl)
-    setLibraryVideoUrl(null) // User uploaded their own — clear library URL
+    dispatchVideoRef({ type: "UPLOAD", file, preview: previewUrl })
   }
 
   const handleImageUpload = (file: File, previewUrl: string) => {
@@ -107,31 +160,36 @@ export function MotionControlTab() {
   }
 
   const handleGenerate = async () => {
-    if ((!videoFile && !libraryVideoUrl) || !imageFile) return
+    if ((!videoRef.file && !videoRef.libraryUrl) || !imageFile) return
 
     setIsGenerating(true)
-    try {
-      const { fileToBase64, generateVideo, getUser } = await import("@/lib/api")
 
-      // Pre-check balance before heavy file conversion
+    let videoUrl: string | undefined
+    if (videoRef.libraryUrl !== null) {
+      videoUrl = videoRef.libraryUrl
+    }
+
+    try {
       const user = await getUser()
-      if (user && user.balance < cost) {
-        setErrorType("insufficient_credits")
-        setErrorCredits({ need: cost, have: user.balance })
-        setErrorOpen(true)
-        setIsGenerating(false)
-        return
+      if (user) {
+        if (user.balance < cost) {
+          dispatchError({ type: "SHOW", errorType: "insufficient_credits", credits: { need: cost, have: user.balance } })
+          setIsGenerating(false)
+          return
+        }
       }
 
-      // Only convert to base64 if user uploaded a file (not from library)
-      const videoBase64 = videoFile ? await fileToBase64(videoFile) : undefined
+      let videoBase64: string | undefined
+      if (videoRef.file) {
+        videoBase64 = await fileToBase64(videoRef.file)
+      }
       const imageBase64 = await fileToBase64(imageFile)
 
       const result = await generateVideo({
         prompt: prompt,
         imageBase64: imageBase64,
         videoBase64: videoBase64,
-        videoUrl: libraryVideoUrl ?? undefined, // Direct CDN URL for library videos
+        videoUrl: videoUrl,
         model: "kling-2.6/motion-control",
         aspectRatio: "16:9",
         duration: roundedDuration,
@@ -139,45 +197,39 @@ export function MotionControlTab() {
       })
 
       if (result.success) {
-        // Success! Reset or show status
-        setVideoFile(null)
-        setVideoPreview(null)
-        setLibraryVideoUrl(null)
+        dispatchVideoRef({ type: "CLEAR_ALL_FORM" })
         setImageFile(null)
         setImagePreview(null)
         setPrompt("")
-        setVideoDuration(0)
-        // Ideally redirect to library or show success toast
+
+        // Success! Close mini app
+        // @ts-ignore - Telegram WebApp
+        window.Telegram?.WebApp?.close()
       } else {
         if (result.error.error === "insufficient_credits") {
-          setErrorType("insufficient_credits")
-          setErrorCredits({
-            need: result.error.need || 0,
-            have: result.error.have || 0,
-          })
+          let need = result.error.need
+          if (!need) need = 0
+          let have = result.error.have
+          if (!have) have = 0
+          dispatchError({ type: "SHOW", errorType: "insufficient_credits", credits: { need, have } })
         } else {
-          setErrorType("generation_failed")
-          setErrorMessage(result.error.error || "Не удалось создать задачу")
+          let errorMsg = result.error.error
+          if (!errorMsg) errorMsg = "Не удалось создать задачу"
+          dispatchError({ type: "SHOW", errorType: "generation_failed", message: errorMsg })
         }
-        setErrorOpen(true)
       }
+      setIsGenerating(false)
     } catch (e) {
-      setErrorType("unknown")
-      setErrorMessage("Произошла ошибка при отправке")
-      setErrorOpen(true)
-    } finally {
+      dispatchError({ type: "SHOW", errorType: "unknown", message: "Произошла ошибка при отправке" })
       setIsGenerating(false)
     }
   }
 
   const handleError = (msg: string) => {
-    setErrorMessage(msg)
-    setErrorType("upload_failed")
-    setErrorOpen(true)
+    dispatchError({ type: "SHOW", errorType: "upload_failed", message: msg })
   }
 
-  // Calculate cost: 6 credits per second, round to nearest whole second
-  const roundedDuration = videoDuration > 0 ? Math.round(videoDuration) : 0
+  const roundedDuration = videoRef.duration > 0 ? Math.round(videoRef.duration) : 0
   const cost = roundedDuration > 0 ? roundedDuration * 6 : 18
 
   return (
@@ -222,13 +274,10 @@ export function MotionControlTab() {
           onUpload={handleVideoUpload}
           validate={validateVideo}
           onClear={() => {
-            setVideoFile(null)
-            setVideoPreview(null)
-            setLibraryVideoUrl(null)
-            setVideoDuration(0)
+            dispatchVideoRef({ type: "CLEAR" })
           }}
           onError={handleError}
-          externalPreview={videoPreview}
+          externalPreview={videoRef.preview}
           externalFileType="video"
           className="h-[130px]"
         />
@@ -263,7 +312,7 @@ export function MotionControlTab() {
           <button
             type="button"
             onClick={() => setOrientation("video")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-all ${orientation === "video"
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-[background-color,color] ${orientation === "video"
               ? "bg-[#2a2a2a] text-white shadow-sm"
               : "text-white/35 hover:text-white/50"
               }`}
@@ -274,7 +323,7 @@ export function MotionControlTab() {
           <button
             type="button"
             onClick={() => setOrientation("image")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-all ${orientation === "image"
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-medium transition-[background-color,color] ${orientation === "image"
               ? "bg-[#2a2a2a] text-white shadow-sm"
               : "text-white/35 hover:text-white/50"
               }`}
@@ -293,18 +342,19 @@ export function MotionControlTab() {
         <GenerateButton
           cost={cost}
           onClick={handleGenerate}
-          disabled={(!videoFile && !libraryVideoUrl) || !imageFile || isGenerating}
+          disabled={(!videoRef.file && !videoRef.libraryUrl) || !imageFile || isGenerating || hasPending}
           loading={isGenerating}
         />
       </div>
 
       <ErrorDialog
-        open={errorOpen}
-        onClose={() => setErrorOpen(false)}
-        type={errorType}
-        message={errorMessage}
-        creditsNeeded={errorCredits.need || cost}
-        creditsHave={errorCredits.have}
+        open={errorState.open}
+        onClose={() => dispatchError({ type: "CLOSE" })}
+        type={errorState.type}
+        message={errorState.message}
+        creditsNeeded={errorState.credits.need || cost}
+        creditsHave={errorState.credits.have}
+        onGoToShop={onGoToShop}
       />
 
       <MotionLibrary

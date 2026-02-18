@@ -1,6 +1,6 @@
 export type ModelId = "veo-3.1" | "minimax-hailuo" | "kling-2.6"
 
-export interface ModelConfig {
+interface ModelConfig {
   id: ModelId
   name: string
   icon: string

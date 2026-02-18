@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useEffect } from "react"
+import Image from "next/image"
 import { Pencil } from "lucide-react"
 
 interface HeroBannerProps {
@@ -42,10 +43,13 @@ export function HeroBanner({ title, subtitle, imageUrl, videoUrl, onChangeBanner
           className="w-full h-full object-cover"
         />
       ) : (
-        <img
+        <Image
           src={imageUrl || "/placeholder.svg"}
           alt={title}
-          className="w-full h-full object-cover"
+          fill
+          sizes="100vw"
+          className="object-cover"
+          unoptimized
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />

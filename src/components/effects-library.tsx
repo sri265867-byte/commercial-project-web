@@ -25,7 +25,7 @@ const EffectCard = React.memo(function EffectCard({
   onSelect,
   eagerMount = false,
 }: EffectCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLButtonElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [shouldMount, setShouldMount] = useState(eagerMount)
   const unmountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -102,9 +102,10 @@ const EffectCard = React.memo(function EffectCard({
   }, [effect, onSelect])
 
   return (
-    <div
+    <button
+      type="button"
       ref={containerRef}
-      className="relative rounded-xl overflow-hidden bg-[#1a1a1a] cursor-pointer group"
+      className="relative rounded-xl overflow-hidden bg-[#1a1a1a] cursor-pointer group w-full"
       style={{ aspectRatio: "9/16", contain: "layout style paint" }}
       onClick={handleSelect}
     >
@@ -137,10 +138,10 @@ const EffectCard = React.memo(function EffectCard({
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
 
       {/* Effect name */}
-      <span className="absolute bottom-1.5 left-1.5 right-1.5 text-[10px] font-bold uppercase text-white leading-[1.15] tracking-wide drop-shadow-lg">
+      <span className="absolute bottom-1.5 left-1.5 right-1.5 text-[10px] font-bold uppercase text-white leading-[1.15] tracking-wide drop-shadow-lg text-left">
         {effect.name}
       </span>
-    </div>
+    </button>
   )
 })
 
@@ -165,12 +166,11 @@ export function EffectsLibrary({
   const [showSearch, setShowSearch] = useState(false)
 
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const effectiveSearchQuery = open ? searchQuery : ""
+  const effectiveShowSearch = open && showSearch
 
-  // Reset state when opening
   useEffect(() => {
     if (open) {
-      setSearchQuery("")
-      setShowSearch(false)
       setIsVisible(true)
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -193,12 +193,12 @@ export function EffectsLibrary({
 
   const filteredEffects = useMemo(() => {
     let effects = getEffectsForModel(currentModel)
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
+    if (effectiveSearchQuery.trim()) {
+      const query = effectiveSearchQuery.toLowerCase()
       effects = effects.filter((e) => e.name.toLowerCase().includes(query))
     }
     return effects
-  }, [currentModel, searchQuery])
+  }, [currentModel, effectiveSearchQuery])
 
 
   const handleSelect = useCallback(
@@ -230,7 +230,7 @@ export function EffectsLibrary({
           <h1 className="text-[15px] font-semibold text-white flex-1">
             Эффекты для {models[currentModel].name}
           </h1>
-          {!showSearch ? (
+          {!effectiveShowSearch ? (
             <button
               type="button"
               onClick={() => setShowSearch(true)}
@@ -255,7 +255,7 @@ export function EffectsLibrary({
         </div>
 
         {/* Search bar */}
-        {showSearch && (
+        {effectiveShowSearch && (
           <div className="px-4 pb-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
@@ -283,10 +283,7 @@ export function EffectsLibrary({
       </div>
 
       {/* Content */}
-      <div
-        className="overflow-y-auto h-[calc(100vh-52px)]"
-        style={{ willChange: "transform" }}
-      >
+      <div className="overflow-y-auto h-[calc(100vh-52px)]">
         {filteredEffects.length > 0 ? (
           <div className="px-3 pt-4 pb-4">
             <div className="grid grid-cols-3 gap-2">

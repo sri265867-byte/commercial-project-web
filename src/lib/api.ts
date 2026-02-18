@@ -27,13 +27,7 @@ export interface UserResponse {
     username: string | null;
     balance: number;
     selected_model: string;
-}
-
-interface StatusResponse {
-    task_id: string;
-    status: "processing" | "completed" | "failed";
-    result_urls?: string[];
-    error?: string;
+    credits_expire_at?: string;
 }
 
 interface ApiError {
@@ -42,7 +36,7 @@ interface ApiError {
     have?: number;
 }
 
-export interface UpdateSettingsParams {
+interface UpdateSettingsParams {
     selected_model?: string;
 }
 
@@ -71,6 +65,29 @@ export async function getUser(): Promise<UserResponse | null> {
 
     if (!res.ok) return null;
     return res.json();
+}
+
+/**
+ * Check if user has any pending generation tasks
+ */
+export async function checkHasPending(): Promise<boolean> {
+    const userId = getUserId();
+    if (!userId) return false;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/user/has-pending`, {
+            headers: {
+                "X-Telegram-User-ID": String(userId),
+                "ngrok-skip-browser-warning": "1",
+            },
+        });
+
+        if (!res.ok) return false;
+        const data = await res.json();
+        return data.has_pending === true;
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -138,27 +155,9 @@ export async function generateVideo(
 }
 
 /**
- * Check task status
- */
-export async function getTaskStatus(taskId: string): Promise<StatusResponse | null> {
-    const userId = getUserId();
-    if (!userId) return null;
-
-    const res = await fetch(`${API_BASE}/api/status/${taskId}`, {
-        headers: {
-            "X-Telegram-User-ID": String(userId),
-            "ngrok-skip-browser-warning": "1",
-        },
-    });
-
-    if (!res.ok) return null;
-    return res.json();
-}
-
-/**
  * Payment
  */
-export interface PaymentResponse {
+interface PaymentResponse {
     payment_id: string;
     confirmation_token: string;
 }
@@ -185,7 +184,7 @@ export async function createPayment(planId: string): Promise<PaymentResponse | n
     }
 }
 
-export interface VerifyPaymentResponse {
+interface VerifyPaymentResponse {
     status: string;
     credits?: number;
 }
@@ -222,4 +221,134 @@ export function fileToBase64(file: File): Promise<string> {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+/**
+ * Referral Tags
+ */
+
+export interface DailyDataPoint {
+    date: string;
+    label: string;
+    users: number;
+    buyers: number;
+}
+
+export interface TagStats {
+    users: number;
+    buyers: number;
+    total_revenue: number;
+    daily_data: DailyDataPoint[];
+}
+
+export interface TagItem {
+    name: string;
+    created_at: string;
+    stats: TagStats;
+}
+
+interface RefTagsResponse {
+    tags: TagItem[];
+    global_tag_count: number;
+}
+
+export async function createRefTag(name: string): Promise<{ status: string; name: string; created_at: string } | null> {
+    const userId = getUserId();
+    if (!userId) return null;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/ref-tags`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Telegram-User-ID": String(userId),
+                "ngrok-skip-browser-warning": "1",
+            },
+            body: JSON.stringify({ name }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail?.error || "create_failed");
+        }
+        return res.json();
+    } catch (e) {
+        throw e;
+    }
+}
+
+export async function getRefTags(): Promise<RefTagsResponse | null> {
+    const userId = getUserId();
+    if (!userId) return null;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/ref-tags`, {
+            headers: {
+                "X-Telegram-User-ID": String(userId),
+                "ngrok-skip-browser-warning": "1",
+            },
+        });
+
+        if (!res.ok) return null;
+        return res.json();
+    } catch {
+        return null;
+    }
+}
+
+export async function deleteRefTag(name: string): Promise<boolean> {
+    const userId = getUserId();
+    if (!userId) return false;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/ref-tags/${encodeURIComponent(name)}`, {
+            method: "DELETE",
+            headers: {
+                "X-Telegram-User-ID": String(userId),
+                "ngrok-skip-browser-warning": "1",
+            },
+        });
+
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
+export async function getRefTagsSummary(): Promise<TagStats | null> {
+    const userId = getUserId();
+    if (!userId) return null;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/ref-tags/summary`, {
+            headers: {
+                "X-Telegram-User-ID": String(userId),
+                "ngrok-skip-browser-warning": "1",
+            },
+        });
+
+        if (!res.ok) return null;
+        return res.json();
+    } catch {
+        return null;
+    }
+}
+
+export async function getBotStats(): Promise<TagStats | null> {
+    const userId = getUserId();
+    if (!userId) return null;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/bot-stats`, {
+            headers: {
+                "X-Telegram-User-ID": String(userId),
+                "ngrok-skip-browser-warning": "1",
+            },
+        });
+
+        if (!res.ok) return null;
+        return res.json();
+    } catch {
+        return null;
+    }
 }

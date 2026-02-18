@@ -9,7 +9,7 @@ export interface Effect {
     prompt: string
 }
 
-export type EffectCategory =
+type EffectCategory =
     | "All"
     | "Horror"
     | "Viral"
@@ -20,7 +20,7 @@ export type EffectCategory =
     | "Emotions"
     | "Commercial"
 
-export const EFFECT_CATEGORIES: EffectCategory[] = [
+const EFFECT_CATEGORIES: EffectCategory[] = [
     "All",
     "Horror",
     "Viral",

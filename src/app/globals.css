@@ -168,17 +168,8 @@ body {
   padding-bottom: var(--tg-content-safe-area-inset-bottom, 0px);
 }
 
-/* Reduce animations for low-performance devices */
-@media (prefers-reduced-motion: reduce) {
 
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
+
 
 /* Custom animations for the shop */
 @keyframes fadeIn {

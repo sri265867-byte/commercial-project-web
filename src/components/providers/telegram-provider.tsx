@@ -142,8 +142,7 @@ const TelegramContext = createContext<TelegramContextType>({
 })
 
 export function TelegramProvider({ children }: { children: React.ReactNode }) {
-    const [isReady, setIsReady] = useState(false)
-    const [webApp, setWebApp] = useState<TelegramWebApp | null>(null)
+    const [tgState, setTgState] = useState<{ webApp: TelegramWebApp | null; isReady: boolean }>({ webApp: null, isReady: false })
 
     // Update CSS variables when safe area changes
     const updateSafeAreaVars = useCallback((safeArea: SafeAreaInset, prefix: string) => {
@@ -156,11 +155,11 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
     // Update viewport CSS variables
     const updateViewportVars = useCallback(() => {
-        if (!webApp) return
+        if (!tgState.webApp) return
         const root = document.documentElement
-        root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`)
-        root.style.setProperty("--tg-viewport-stable-height", `${webApp.viewportStableHeight}px`)
-    }, [webApp])
+        root.style.setProperty("--tg-viewport-height", `${tgState.webApp.viewportHeight}px`)
+        root.style.setProperty("--tg-viewport-stable-height", `${tgState.webApp.viewportStableHeight}px`)
+    }, [tgState.webApp])
 
     useEffect(() => {
         const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : null
@@ -200,8 +199,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
         tg.onEvent("contentSafeAreaChanged", handleContentSafeAreaChanged)
         tg.onEvent("viewportChanged", handleViewportChanged)
 
-        setWebApp(tg)
-        setIsReady(true)
+        setTgState({ webApp: tg, isReady: true })
 
         return () => {
             tg.offEvent("safeAreaChanged", handleSafeAreaChanged)
@@ -214,49 +212,49 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     const storage = useMemo(() => ({
         get: (key: string): Promise<string | null> => {
             return new Promise((resolve) => {
-                if (!webApp?.DeviceStorage) {
+                if (!tgState.webApp?.DeviceStorage) {
                     resolve(null)
                     return
                 }
-                webApp.DeviceStorage.getItem(key, (err, value) => {
+                tgState.webApp.DeviceStorage.getItem(key, (err, value) => {
                     resolve(err ? null : value)
                 })
             })
         },
         set: (key: string, value: string): Promise<boolean> => {
             return new Promise((resolve) => {
-                if (!webApp?.DeviceStorage) {
+                if (!tgState.webApp?.DeviceStorage) {
                     resolve(false)
                     return
                 }
-                webApp.DeviceStorage.setItem(key, value, (err, success) => {
+                tgState.webApp.DeviceStorage.setItem(key, value, (err, success) => {
                     resolve(!err && success)
                 })
             })
         },
         remove: (key: string): Promise<boolean> => {
             return new Promise((resolve) => {
-                if (!webApp?.DeviceStorage) {
+                if (!tgState.webApp?.DeviceStorage) {
                     resolve(false)
                     return
                 }
-                webApp.DeviceStorage.removeItem(key, (err, success) => {
+                tgState.webApp.DeviceStorage.removeItem(key, (err, success) => {
                     resolve(!err && success)
                 })
             })
         },
-    }), [webApp])
+    }), [tgState.webApp])
 
     const value = useMemo<TelegramContextType>(() => ({
-        webApp,
-        isReady,
-        user: webApp?.initDataUnsafe?.user ?? null,
-        platform: webApp?.platform ?? "unknown",
-        colorScheme: webApp?.colorScheme ?? "dark",
-        isFullscreen: webApp?.isFullscreen ?? false,
-        haptic: webApp?.HapticFeedback ?? null,
+        webApp: tgState.webApp,
+        isReady: tgState.isReady,
+        user: tgState.webApp?.initDataUnsafe?.user ?? null,
+        platform: tgState.webApp?.platform ?? "unknown",
+        colorScheme: tgState.webApp?.colorScheme ?? "dark",
+        isFullscreen: tgState.webApp?.isFullscreen ?? false,
+        haptic: tgState.webApp?.HapticFeedback ?? null,
         storage,
-    }), [webApp, isReady, storage])
+    }), [tgState, storage])
 
     return (
         <TelegramContext.Provider value={value}>

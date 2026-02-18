@@ -43,7 +43,7 @@ export const MINIMAX_HAILUO_EFFECTS: Effect[] = [
     },
     {
         id: "mh-5",
-        name: "MAGGOR SWARM",
+        name: "MAGGOT SWARM",
         category: "Horror",
         videoUrl: "https://cdn.higgsfield.ai/minimax_hailuo_motion/bd04ebd9-5217-4f49-99d3-f14ea6e246b3.mp4",
         model: "minimax-hailuo",

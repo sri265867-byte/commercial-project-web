@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect } from "react"
+import { useRef, useState } from "react"
+import Image from "next/image"
 import { ImagePlus, X, type LucideIcon, Play } from "lucide-react"
 
 interface UploadAreaProps {
@@ -35,13 +36,8 @@ export function UploadArea({
   const [preview, setPreview] = useState<string | null>(null)
   const [fileType, setFileType] = useState<"image" | "video">("image")
 
-  // Sync external preview from parent (e.g. motion library selection)
-  useEffect(() => {
-    if (externalPreview) {
-      setPreview(externalPreview)
-      setFileType(externalFileType ?? "video")
-    }
-  }, [externalPreview, externalFileType])
+  const displayPreview = externalPreview || preview
+  const displayFileType = externalPreview ? (externalFileType ?? "video") : fileType
 
   const handleClick = () => {
     inputRef.current?.click()
@@ -137,11 +133,11 @@ export function UploadArea({
         className="hidden"
       />
 
-      {preview ? (
+      {displayPreview ? (
         <div className="relative w-full aspect-[3/4] rounded-2xl overflow-hidden bg-[#161616] border border-white/[0.06]">
-          {fileType === "video" ? (
+          {displayFileType === "video" ? (
             <video
-              src={preview}
+              src={displayPreview}
               className="absolute inset-0 w-full h-full object-cover"
               autoPlay
               loop
@@ -149,10 +145,13 @@ export function UploadArea({
               playsInline
             />
           ) : (
-            <img
-              src={preview}
+            <Image
+              src={displayPreview!}
               alt="Preview"
-              className="absolute inset-0 w-full h-full object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover"
+              unoptimized
             />
           )}
 

@@ -67,7 +67,7 @@ const VideoCard = React.memo(function VideoCard({
   onToggleAudio,
   onSelect,
 }: VideoCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLButtonElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [shouldMount, setShouldMount] = useState(false)
   const unmountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -172,9 +172,10 @@ const VideoCard = React.memo(function VideoCard({
   }, [video, onSelect])
 
   return (
-    <div
+    <button
+      type="button"
       ref={containerRef}
-      className="relative rounded-xl overflow-hidden bg-[#1a1a1a] cursor-pointer group"
+      className="relative rounded-xl overflow-hidden bg-[#1a1a1a] cursor-pointer group w-full"
       style={{ aspectRatio: "9/16", contain: "layout style paint" }}
       onClick={handleSelect}
     >
@@ -212,7 +213,7 @@ const VideoCard = React.memo(function VideoCard({
       <button
         type="button"
         onClick={handleToggleAudio}
-        className="absolute bottom-2.5 right-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-all active:scale-90"
+        className="absolute bottom-2.5 right-2.5 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm transition-transform active:scale-90"
         aria-label={isAudioActive ? "Выключить звук" : "Включить звук"}
       >
         {isAudioActive ? (
@@ -221,7 +222,7 @@ const VideoCard = React.memo(function VideoCard({
           <VolumeOff className="w-3.5 h-3.5 text-white/70" />
         )}
       </button>
-    </div>
+    </button>
   )
 })
 
@@ -237,6 +238,7 @@ export function MotionLibrary({ open, onClose, onSelectVideo }: MotionLibraryPro
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [activeAudioId, setActiveAudioId] = useState<string | null>(null)
+  const effectiveActiveAudioId = open ? activeAudioId : null
 
   useEffect(() => {
     if (open) {
@@ -248,7 +250,6 @@ export function MotionLibrary({ open, onClose, onSelectVideo }: MotionLibraryPro
       })
     } else {
       setIsAnimating(false)
-      setActiveAudioId(null)
       const timer = setTimeout(() => setIsVisible(false), 300)
       return () => clearTimeout(timer)
     }
@@ -289,10 +290,7 @@ export function MotionLibrary({ open, onClose, onSelectVideo }: MotionLibraryPro
         </div>
       </div>
 
-      <div
-        className="overflow-y-auto h-[calc(100vh-52px)]"
-        style={{ willChange: "transform" }}
-      >
+      <div className="overflow-y-auto h-[calc(100vh-52px)]">
         {/* Video Grid */}
         <div className="px-3 pt-4 pb-8">
           <p className="text-[12px] text-white/40 font-medium mb-3 px-1">
@@ -303,7 +301,7 @@ export function MotionLibrary({ open, onClose, onSelectVideo }: MotionLibraryPro
               <VideoCard
                 key={video.id}
                 video={video}
-                isAudioActive={activeAudioId === video.id}
+                isAudioActive={effectiveActiveAudioId === video.id}
                 onToggleAudio={handleToggleAudio}
                 onSelect={handleSelect}
               />

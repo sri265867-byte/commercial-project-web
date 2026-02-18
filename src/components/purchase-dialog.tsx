@@ -54,8 +54,7 @@ interface PurchaseDialogProps {
 type Step = "confirm" | "loading" | "widget" | "success" | "error"
 
 export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDialogProps) {
-  const [step, setStep] = useState<Step>("confirm")
-  const [errorMsg, setErrorMsg] = useState("")
+  const [dialogState, setDialogState] = useState<{ step: Step; errorMsg: string }>({ step: "confirm", errorMsg: "" })
   const widgetRef = useRef<unknown>(null)
   const widgetInstanceRef = useRef<{
     render: (containerId?: string) => Promise<void>
@@ -66,10 +65,8 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
 
   useEffect(() => {
     if (open) {
-      setStep("confirm")
-      setErrorMsg("")
+      setDialogState({ step: "confirm", errorMsg: "" })
     } else {
-      // Clean up widget
       if (widgetInstanceRef.current) {
         try {
           widgetInstanceRef.current.destroy()
@@ -84,13 +81,12 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
   const initWidget = useCallback(async () => {
     if (!plan) return
 
-    setStep("loading")
+    setDialogState(prev => ({ ...prev, step: "loading" }))
 
     // Create payment on backend → get confirmation_token
     const result = await createPayment(plan.id)
     if (!result) {
-      setStep("error")
-      setErrorMsg("Не удалось создать платёж. Попробуйте позже.")
+      setDialogState({ step: "error", errorMsg: "Не удалось создать платёж. Попробуйте позже." })
       return
     }
 
@@ -99,12 +95,11 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
 
     // Check that widget script is loaded
     if (typeof window.YooMoneyCheckoutWidget === "undefined") {
-      setStep("error")
-      setErrorMsg("Платёжная система не загружена. Обновите страницу.")
+      setDialogState({ step: "error", errorMsg: "Платёжная система не загружена. Обновите страницу." })
       return
     }
 
-    setStep("widget")
+    setDialogState(prev => ({ ...prev, step: "widget" }))
 
     // Wait for DOM to update with the widget container
     setTimeout(() => {
@@ -120,8 +115,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
           },
           error_callback: (error: unknown) => {
             console.error("YooKassa widget error:", error)
-            setStep("error")
-            setErrorMsg("Ошибка платёжной системы")
+            setDialogState({ step: "error", errorMsg: "Ошибка платёжной системы" })
           },
         })
 
@@ -129,7 +123,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
 
         widget.on("success", async () => {
           // Payment succeeded in widget — verify on backend to credit user
-          setStep("success")
+          setDialogState(prev => ({ ...prev, step: "success" }))
 
           // Call verify endpoint to ensure credits are applied
           if (paymentIdRef.current) {
@@ -147,8 +141,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
         })
 
         widget.on("fail", () => {
-          setStep("error")
-          setErrorMsg("Платёж не прошёл. Попробуйте ещё раз.")
+          setDialogState({ step: "error", errorMsg: "Платёж не прошёл. Попробуйте ещё раз." })
         })
 
         widget.on("modal_close", () => {
@@ -161,15 +154,14 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
             }
             widgetInstanceRef.current = null
           }
-          setStep("confirm")
+          setDialogState(prev => ({ ...prev, step: "confirm" }))
         })
 
         // modal: true means render() opens the modal itself
         widget.render()
       } catch (err) {
         console.error("Widget init error:", err)
-        setStep("error")
-        setErrorMsg("Не удалось открыть форму оплаты")
+        setDialogState({ step: "error", errorMsg: "Не удалось открыть форму оплаты" })
       }
     }, 100)
   }, [plan, onComplete, onClose])
@@ -177,10 +169,10 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
   if (!plan) return null
 
   return (
-    <Drawer open={open} onOpenChange={(isOpen) => !isOpen && step === "confirm" && onClose()}>
+    <Drawer open={open} onOpenChange={(isOpen) => !isOpen && dialogState.step === "confirm" && onClose()}>
       <DrawerContent>
         {/* Close button */}
-        {(step === "confirm" || step === "error") && (
+        {(dialogState.step === "confirm" || dialogState.step === "error") && (
           <button
             type="button"
             onClick={onClose}
@@ -191,7 +183,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
         )}
 
         {/* Step: Confirm */}
-        {step === "confirm" && (
+        {dialogState.step === "confirm" && (
           <div className="flex flex-col items-center gap-5 pt-2">
             {/* Icon */}
             <div className="relative">
@@ -235,7 +227,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
             {/* Pay button */}
             <Button
               onClick={initWidget}
-              className="w-full py-3.5 h-auto rounded-full bg-[#c8ff00] text-black font-bold text-[15px] hover:bg-[#d4ff33] active:bg-[#b8ee00] transition-all shadow-[0_0_24px_rgba(200,255,0,0.25)] active:scale-[0.98]"
+              className="w-full py-3.5 h-auto rounded-full bg-[#c8ff00] text-black font-bold text-[15px] hover:bg-[#d4ff33] active:bg-[#b8ee00] transition-[transform,background-color] shadow-[0_0_24px_rgba(200,255,0,0.25)] active:scale-[0.98]"
             >
               Оплатить {plan.price}
             </Button>
@@ -249,7 +241,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
         )}
 
         {/* Step: Loading (creating payment) */}
-        {step === "loading" && (
+        {dialogState.step === "loading" && (
           <div className="flex flex-col items-center gap-5 pt-6 pb-4">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 rounded-full border-2 border-[#c8ff00]/20" />
@@ -266,7 +258,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
         )}
 
         {/* Step: Widget (YooKassa handles the modal itself) */}
-        {step === "widget" && (
+        {dialogState.step === "widget" && (
           <div className="flex flex-col items-center gap-4 pt-6 pb-4">
             <div className="relative w-16 h-16">
               <div className="absolute inset-0 rounded-full border-2 border-[#c8ff00]/20" />
@@ -280,7 +272,7 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
         )}
 
         {/* Step: Success */}
-        {step === "success" && (
+        {dialogState.step === "success" && (
           <div className="flex flex-col items-center gap-5 pt-6 pb-4">
             <div className="relative">
               <div className="w-16 h-16 rounded-full bg-[#c8ff00]/15 flex items-center justify-center animate-successPop">
@@ -302,19 +294,19 @@ export function PurchaseDialog({ open, onClose, plan, onComplete }: PurchaseDial
         )}
 
         {/* Step: Error */}
-        {step === "error" && (
+        {dialogState.step === "error" && (
           <div className="flex flex-col items-center gap-5 pt-6 pb-4">
             <div className="w-16 h-16 rounded-full bg-red-500/15 flex items-center justify-center">
               <AlertCircle className="w-8 h-8 text-red-400" />
             </div>
             <div className="text-center">
               <DrawerTitle>Ошибка</DrawerTitle>
-              <DrawerDescription className="mt-1.5">{errorMsg}</DrawerDescription>
+              <DrawerDescription className="mt-1.5">{dialogState.errorMsg}</DrawerDescription>
             </div>
             <Button
-              onClick={() => setStep("confirm")}
+              onClick={() => setDialogState(prev => ({ ...prev, step: "confirm" }))}
               variant="ghost"
-              className="w-full py-3 h-auto rounded-full bg-white/10 text-white font-semibold text-[14px] hover:bg-white/15 transition-all active:scale-[0.98]"
+              className="w-full py-3 h-auto rounded-full bg-white/10 text-white font-semibold text-[14px] hover:bg-white/15 transition-[transform,background-color] active:scale-[0.98]"
             >
               Попробовать ещё раз
             </Button>
