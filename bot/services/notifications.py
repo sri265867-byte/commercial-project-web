@@ -125,13 +125,16 @@ class TelegramNotifier:
         model_names = {
             "veo3_fast": "Veo 3.1",
             "minimax-hailuo": "Minimax Hailuo",
+            "kling-2.6/image-to-video": "Kling 2.6",
+            "kling-2.6/motion-control": "Kling Motion Control",
         }
         model_name = model_names.get(model, model)
         
         caption = (
-            f"🎬 <b>Video Generated!</b>\n\n"
-            f"📱 Model: {model_name}\n"
-            f"💬 Prompt: <i>{prompt[:100]}{'...' if len(prompt) > 100 else ''}</i>"
+            f"✅ <b>ВИДЕО СГЕНЕРИРОВАНО</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"🤖 Модель: {model_name}\n"
+            f"💬 Промпт: <i>{prompt[:100]}{'...' if len(prompt) > 100 else ''}</i>"
         )
         
         return await self.send_video(user_id, video_url, caption)
@@ -143,10 +146,14 @@ class TelegramNotifier:
         credits_refunded: int,
     ) -> bool:
         """Send generation failed notification"""
+        logger.error(f"[Generation Failed] user={user_id}, error={error}")
+        
         text = (
-            f"❌ <b>Video generation failed</b>\n\n"
-            f"Error: {error}\n\n"
-            f"💰 <b>{credits_refunded} credits</b> have been refunded to your account."
+            f"❌ <b>ОШИБКА ГЕНЕРАЦИИ</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n\n"
+            f"К сожалению, генерация не удалась.\n"
+            f"💎 <b>{credits_refunded} кредитов</b> возвращены на ваш баланс.\n\n"
+            f"Если проблема повторяется, напишите: @kalomaze"
         )
         
         return await self.send_message(user_id, text)

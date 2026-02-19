@@ -379,6 +379,11 @@ async def generate_video(
             )
     
     try:
+        # ── Rate Limiter: wait for slot (max 20 req/10s) ──
+        from services.rate_limiter import get_rate_limiter
+        limiter = get_rate_limiter()
+        await limiter.acquire()
+        
         # Route to appropriate model
         if request.model == "minimax-hailuo":
             # Hailuo Image-to-Video Pro

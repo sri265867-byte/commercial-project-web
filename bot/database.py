@@ -18,6 +18,12 @@ class Database:
         settings = get_settings()
         cls._client = AsyncMongoClient(settings.mongo_uri)
         cls._db = cls._client[settings.mongo_db_name]
+        
+        # TTL index: auto-delete completed tasks after 7 days
+        await cls._db["users_queue"].create_index(
+            "completed_at",
+            expireAfterSeconds=7 * 24 * 3600,  # 7 days
+        )
 
     @classmethod
     async def disconnect(cls) -> None:
