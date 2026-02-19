@@ -391,7 +391,7 @@ async def generate_video(
                 prompt=request.prompt,
                 image_url=image_url,
                 duration=duration,
-                callback_url=f"{settings.api_public_url}/api/callback/hailuo",
+                callback_url=f"{settings.callback_base_url}/api/callback/hailuo",
             )
             
             task_id = await hailuo.generate(hailuo_request)
@@ -408,7 +408,7 @@ async def generate_video(
                 image_url=image_url,
                 duration=duration,
                 sound=request.sound,
-                callback_url=f"{settings.api_public_url}/api/callback/kling",
+                callback_url=f"{settings.callback_base_url}/api/callback/kling",
             )
             
             task_id = await kling.generate(kling_request)
@@ -427,7 +427,7 @@ async def generate_video(
                 video_urls=[video_url],
                 character_orientation=request.character_orientation or "video",
                 mode="720p",
-                callback_url=f"{settings.api_public_url}/api/callback/kling",
+                callback_url=f"{settings.callback_base_url}/api/callback/kling",
             )
             
             task_id = await kling_motion.generate(motion_request)
@@ -441,7 +441,7 @@ async def generate_video(
                 image_urls=[image_url],
                 model=VeoModel(request.model),
                 aspect_ratio=AspectRatio(request.aspect_ratio),
-                callback_url=f"{settings.api_public_url}/api/callback/veo",
+                callback_url=f"{settings.callback_base_url}/api/callback/veo",
             )
             
             task_id = await veo.generate(veo_request)
@@ -1231,6 +1231,33 @@ async def verify_payment(
             f"[Payment Verify] Payment {request.payment_id} verified: "
             f"+{credits_to_add} credits to user {user.user_id}"
         )
+
+        # ── Admin log: payment ──
+        try:
+            from services.notifications import get_notifier
+            notifier = get_notifier()
+            amount = payment_record.get("amount", "?")
+            plan_id = payment_record.get("plan_id", "?")
+
+            plan_names = {
+                "starter": "Начинающий",
+                "creator": "Создатель",
+                "pro": "Про",
+            }
+            plan_name = plan_names.get(plan_id, plan_id)
+
+            admin_pay_text = (
+                f"✅ <b>КРЕДИТЫ ОПЛАЧЕНЫ</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"👤 Пользователь: <code>{user.user_id}</code>\n"
+                f"💎 Кол-во кредитов: <b>+{credits_to_add}</b>\n"
+                f"💳 Сумма: <b>{amount} ₽</b>\n"
+                f"📦 Тариф: {plan_name}\n\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
+            await notifier.notify_admins(admin_pay_text)
+        except Exception as e:
+            logger.warning(f"Failed to send admin payment notification: {e}")
 
         return {"status": "succeeded", "credits": credits_to_add}
 

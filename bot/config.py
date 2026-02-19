@@ -7,7 +7,12 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017"
     mongo_db_name: str = "video_generator"
     webapp_url: str = "https://example.com"
-    api_public_url: str = "http://localhost:8000"  # For callbacks (ngrok URL)
+    api_public_url: str = "http://localhost:8000"  # For callbacks (Amvera URL)
+    
+    @property
+    def callback_base_url(self) -> str:
+        """API URL without trailing slash for callback construction"""
+        return self.api_public_url.rstrip("/")
     
     # Kie.ai API (used for Veo, Hailuo, etc.)
     kie_api_key: str = ""
