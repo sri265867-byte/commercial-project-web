@@ -247,7 +247,7 @@ async def get_current_user(x_telegram_user_id: int = Header(...)):
     return user
 
 
-@app.get("/")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "ok", "service": "video-generator-api"}
