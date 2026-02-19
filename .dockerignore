@@ -1,0 +1,35 @@
+# Dependencies (will be installed in container)
+node_modules/
+.pnpm-store/
+
+# Build output (will be built in container)
+.next/
+out/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local env files (set via Amvera dashboard)
+.env
+.env.local
+.env.*.local
+bot/.env
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Vercel (not needed for Amvera)
+.vercel/
+
+# Git
+.git/
+.gitignore
