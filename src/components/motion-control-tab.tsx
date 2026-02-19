@@ -302,7 +302,8 @@ export function MotionControlTab({ onGoToShop }: { onGoToShop?: () => void }) {
       <PromptInput
         value={prompt}
         onChange={setPrompt}
-        placeholder={'Опишите фон и детали сцены — например, "Корги бежит" или "Парк зимой". Движение контролируется видео-референсом'}
+        placeholder={'A snowy park with winter trees, soft light...'}
+        hint="✏️ Необязательно · Опишите фон сцены на английском"
       />
 
       {/* Orientation */}

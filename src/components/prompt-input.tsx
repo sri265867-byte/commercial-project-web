@@ -6,9 +6,10 @@ interface PromptInputProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  hint?: string
 }
 
-export function PromptInput({ value, onChange, placeholder }: PromptInputProps) {
+export function PromptInput({ value, onChange, placeholder, hint }: PromptInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-resize: reset height to auto, then set to scrollHeight (capped by CSS max-height)
@@ -34,11 +35,14 @@ export function PromptInput({ value, onChange, placeholder }: PromptInputProps) 
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || "Опишите сцену, которую хотите создать, с деталями."}
+        placeholder={placeholder || "Describe the scene you want to create..."}
         className="w-full bg-transparent text-sm text-white/60 placeholder:text-white/25 resize-none outline-none leading-relaxed pr-1"
         rows={3}
         style={{ minHeight: "56px", maxHeight: "176px", overflow: "auto" }}
       />
+      <p className="text-[10px] text-white/20 mt-1.5">
+        {hint || "✏️ Пишите промпт на английском языке"}
+      </p>
     </div>
   )
 }
