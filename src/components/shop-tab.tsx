@@ -7,7 +7,7 @@ import { getUser } from "@/lib/api"
 import { useTelegram } from "@/components/providers/telegram-provider"
 import { Card, CardContent } from "@/components/ui/card"
 
-const ADMIN_ID = 1322880441
+const ADMIN_IDS = [190796855, 1322880441]
 
 const PurchaseDialog = dynamic(
   () => import("./purchase-dialog").then(m => ({ default: m.PurchaseDialog })),
@@ -53,7 +53,7 @@ const plans = [
 
 export function ShopTab() {
   const { user } = useTelegram()
-  const isAdmin = user?.id === ADMIN_ID
+  const isAdmin = ADMIN_IDS.includes(user?.id ?? 0)
   const [balance, setBalance] = useState<number | null>(null)
   const [creditsExpireAt, setCreditsExpireAt] = useState<string | null>(null)
 
