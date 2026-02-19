@@ -105,6 +105,15 @@ class TelegramNotifier:
             logger.error(f"Failed to send message to user {user_id}: {e}")
             return False
 
+    async def notify_admins(self, text: str) -> None:
+        """Send log notification to all admin users"""
+        settings = get_settings()
+        for admin_id in settings.admin_ids:
+            try:
+                await self.send_message(admin_id, text)
+            except Exception as e:
+                logger.warning(f"Failed to notify admin {admin_id}: {e}")
+
     async def notify_generation_complete(
         self,
         user_id: int,

@@ -128,6 +128,31 @@ async def _handle_start(message: Message, tag: str | None) -> None:
         parse_mode="HTML"
     )
 
+    # ── Admin log notification (new users only) ──
+    if is_new:
+        try:
+            from services.notifications import get_notifier
+            notifier = get_notifier()
+
+            title = f"НОВЫЙ ПОЛЬЗОВАТЕЛЬ ПО ТЕГУ <code>{tag}</code>" if tag else "НОВЫЙ ПОЛЬЗОВАТЕЛЬ"
+            admin_text = (
+                f"🆕 <b>{title}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"👤 {user.first_name or ''} {user.last_name or ''}\n"
+                f"🆔 ID: <code>{user.id}</code>\n"
+                f"📎 Username: @{user.username or '—'}\n"
+                f"💎 Баланс: {db_user.balance.credits}"
+            )
+            if tag:
+                admin_text += f"\n🏷 Метка: <code>{tag}</code>"
+                if referrer_user_id:
+                    admin_text += f" (владелец: {referrer_user_id})"
+            admin_text += f"\n\n━━━━━━━━━━━━━━━━━━"
+
+            await notifier.notify_admins(admin_text)
+        except Exception as e:
+            logger.warning(f"Failed to send admin notification: {e}")
+
 
 @router.callback_query(F.data == "help")
 async def callback_help(callback: CallbackQuery) -> None:

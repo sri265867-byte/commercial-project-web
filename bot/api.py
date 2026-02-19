@@ -505,6 +505,18 @@ async def generate_video(
                 "Вы получите уведомление, когда видео будет готово."
             )
             await notifier.send_message(user.user_id, queue_text)
+            
+            # ── Admin log: generation ──
+            admin_gen_text = (
+                f"🎬 <b>ГЕНЕРАЦИЯ ЗАПУЩЕНА</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"👤 Пользователь: <code>{user.user_id}</code> (@{user.username or '—'})\n"
+                f"🤖 Модель: <b>{model_display}</b>\n"
+                f"💎 Списано: <b>{cost}</b> кр. (остаток: {remaining})\n"
+                f"💬 Промпт: <i>{(request.prompt or '—')[:80]}</i>\n\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
+            await notifier.notify_admins(admin_gen_text)
         except Exception as e:
             logger.warning(f"Failed to send queue notification: {e}")
         
@@ -1106,6 +1118,33 @@ async def payment_webhook(request: Request):
             f"[Payment Webhook] Payment {payment_id} succeeded: "
             f"+{credits_to_add} credits to user {user_id}"
         )
+
+        # ── Admin log: payment ──
+        try:
+            from services.notifications import get_notifier
+            notifier = get_notifier()
+            amount = payment_record.get("amount", "?")
+            plan_id = payment_record.get("plan_id", "?")
+            
+            plan_names = {
+                "starter": "Начинающий",
+                "creator": "Создатель",
+                "pro": "Про",
+            }
+            plan_name = plan_names.get(plan_id, plan_id)
+            
+            admin_pay_text = (
+                f"✅ <b>КРЕДИТЫ ОПЛАЧЕНЫ</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"👤 Пользователь: <code>{user_id}</code>\n"
+                f"💎 Кол-во кредитов: <b>+{credits_to_add}</b>\n"
+                f"💳 Сумма: <b>{amount} ₽</b>\n"
+                f"📦 Тариф: {plan_name}\n\n"
+                f"━━━━━━━━━━━━━━━━━━"
+            )
+            await notifier.notify_admins(admin_pay_text)
+        except Exception as e:
+            logger.warning(f"Failed to send admin payment notification: {e}")
 
     elif event == "payment.canceled":
         await Database.db.payments.update_one(

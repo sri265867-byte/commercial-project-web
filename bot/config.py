@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # API Server
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    
+    # Admin IDs for log notifications
+    admin_ids: list[int] = [190796855, 1322880441]
 
     class Config:
         env_file = ".env"
